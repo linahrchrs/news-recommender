@@ -1,265 +1,112 @@
-#  News Article Recommender System
+# News Article Recommender System
 
-**CSC4352 Final Project - NLP + Transformers**
+A semantic news recommender that understands what articles are *about*, not just which words they share. Articles are embedded with **DistilBERT**, indexed with **FAISS**, and served through an interactive **Streamlit** news portal with browsing, semantic search and personalized recommendations.
 
-An intelligent news recommendation system that leverages transformer-based models (DistilBERT) and FAISS vector search to provide semantically-aware article recommendations.
+> CSC 4352 (NLP + Transformers) final project, Al Akhawayn University, by **Ghita Nafa & Lina Harcharras**.
 
----
+![App screenshot](docs/screenshot.png)
 
-##  Project Overview
+## Features
 
-This system demonstrates modern NLP techniques for content recommendation:
+- **Similar articles**: pick any article and get the most semantically similar ones, with similarity scores.
+- **Semantic search**: natural-language queries matched by meaning rather than exact keywords.
+- **Personalized feed**: builds a user profile from reading history and recommends unread articles that match it.
+- **Category filtering** and pagination for browsing.
+- **Topic clustering** (optional): K-means / HDBSCAN clusters visualized with UMAP.
 
-- **Transformer Embeddings**: Uses DistilBERT to create 768-dimensional semantic representations of articles
-- **Vector Search**: FAISS enables fast similarity search across thousands of articles
-- **Content-Based Filtering**: Recommends articles based on semantic similarity
-- **Interactive UI**: Streamlit-powered web interface for browsing, searching, and getting recommendations
+## How It Works
 
----
-
-##  System Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    USER INTERFACE                           │
-│                  (Streamlit Frontend)                       │
-├─────────────────────────────────────────────────────────────┤
-│                 RECOMMENDATION ENGINE                       │
-│    ┌──────────────┬──────────────────┬───────────────┐     │
-│    │    Query     │    Similarity    │   Ranking &   │     │
-│    │  Processing  │   Computation    │   Filtering   │     │
-│    └──────────────┴──────────────────┴───────────────┘     │
-├─────────────────────────────────────────────────────────────┤
-│                   EMBEDDING LAYER                           │
-│              (DistilBERT Transformer)                       │
-│    ┌──────────────┬──────────────────┬───────────────┐     │
-│    │  WordPiece   │     Model        │   768-dim     │     │
-│    │  Tokenizer   │    Encoder       │   Vector      │     │
-│    └──────────────┴──────────────────┴───────────────┘     │
-├─────────────────────────────────────────────────────────────┤
-│                   VECTOR DATABASE                           │
-│                (FAISS Index Store)                          │
-├─────────────────────────────────────────────────────────────┤
-│                    DATA STORAGE                             │
-│               (News Article Database)                       │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
-
-##  Project Structure
+1. **Preprocessing**: removes HTML, URLs and emails, normalizes Unicode and whitespace.
+2. **Embeddings**: DistilBERT with mean pooling turns each article into a normalized 768-dimensional vector.
+3. **Indexing**: vectors are stored in a FAISS `IndexFlatIP` index. For normalized vectors, inner product equals cosine similarity.
+4. **Recommendation**: the seed article's vector queries FAISS for the top-K neighbors; already-read articles are filtered out and the rest are ranked by similarity.
+5. **Personalization**: the user profile is the normalized mean of the embeddings of articles read so far (at least 2 needed).
 
 ```
-news-recommender/
-├── app.py                 # Streamlit web application
-├── config.py              # Configuration settings
-├── requirements.txt       # Python dependencies
-├── README.md              # This file
-│
-├── data/
-│   ├── __init__.py
-│   └── data_loader.py     # Dataset loading utilities
-│
-├── models/
-│   ├── __init__.py
-│   ├── embeddings.py      # Transformer embedding generation
-│   ├── vector_db.py       # FAISS vector database
-│   └── recommender.py     # Recommendation engine
-│
-└── utils/
-    ├── __init__.py
-    └── preprocessing.py   # Text preprocessing pipeline
+Streamlit UI ──► Recommendation engine ──► DistilBERT embeddings ──► FAISS index ──► Article store
 ```
 
----
+## Datasets
 
-##  Quick Start
+| Dataset | Size | Categories |
+|---|---|---|
+| Sample data (default) | 15 hand-written articles | World, Sports, Business, Sci/Tech, Health |
+| [AG News](https://huggingface.co/datasets/ag_news) | 120,000 articles (100–10,000 loaded in the app) | World, Sports, Business, Sci/Tech |
 
-### 1. Install Dependencies
+AG News is downloaded automatically through HuggingFace Datasets on first use.
+
+## Getting Started
 
 ```bash
+git clone https://github.com/linahrchrs/news-recommender.git
 cd news-recommender
+python -m venv venv && source venv/bin/activate   # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-```
-
-### 2. Run the Application
-
-```bash
 streamlit run app.py
 ```
 
-### 3. Open in Browser
+Then open http://localhost:8501, choose a dataset in the sidebar and click **Initialize System**. The first run downloads the DistilBERT model (~250 MB).
 
-Navigate to `http://localhost:8501`
+Other options:
+- `bash setup.sh --venv` creates a virtual environment, installs dependencies and runs quick checks.
+- `python demo.py` runs every component from the command line.
+- For topic clustering, also run `pip install hdbscan umap-learn plotly`.
 
----
+## Project Structure
 
-##  Supported Datasets
-
-### Sample Data (Default)
-- 15 hand-crafted articles across 5 categories
-- Perfect for testing and demonstration
-
-### AG News
-- 120,000 news articles
-- 4 categories: World, Sports, Business, Sci/Tech
-- Loaded via HuggingFace Datasets
-
-### Custom Data
-You can add your own dataset by implementing a loader in `data/data_loader.py`:
-
-```python
-def load_custom_data() -> NewsDataset:
-    articles = [
-        NewsArticle(
-            article_id="unique_id",
-            title="Article Title",
-            content="Article content...",
-            category="Category",
-            source="Source Name",
-            published_date="2024-01-01"
-        ),
-        # ... more articles
-    ]
-    return NewsDataset(articles)
+```
+news-recommender/
+├── app.py               # Streamlit application (browse, search, personalized views)
+├── demo.py              # Command-line demo of all components
+├── config.py            # Model, FAISS, dataset and UI settings
+├── setup.sh             # Setup and sanity-check script
+├── data/
+│   └── data_loader.py   # NewsArticle schema, sample data, AG News / BBC / MIND loaders
+├── models/
+│   ├── embeddings.py    # DistilBERT embedding generation (CLS / mean / max pooling)
+│   ├── vector_db.py     # FAISS index wrapper (flat IP, flat L2, IVF)
+│   ├── recommender.py   # Recommendation engine and user profiles
+│   └── clustering.py    # Topic clustering and visualization
+├── utils/
+│   └── preprocessing.py # Text cleaning pipeline
+└── Report.pdf           # Project report
 ```
 
----
-
-##  Core Components
-
-### 1. Text Preprocessing (`utils/preprocessing.py`)
-
-```python
-from utils import TextPreprocessor
-
-preprocessor = TextPreprocessor(lowercase=False)
-clean_text = preprocessor.preprocess(raw_text)
-```
-
-Features:
-- HTML tag removal
-- URL and email filtering
-- Unicode normalization
-- Whitespace normalization
-
-### 2. Embedding Generation (`models/embeddings.py`)
-
-```python
-from models import EmbeddingGenerator
-
-generator = EmbeddingGenerator(
-    model_name='distilbert-base-uncased',
-    pooling_strategy='mean'  # Options: 'cls', 'mean', 'max'
-)
-
-# Single text
-embedding = generator.generate_embedding("Article text here")
-
-# Batch processing
-embeddings = generator.generate_embeddings_batch(texts, batch_size=16)
-```
-
-### 3. Vector Database (`models/vector_db.py`)
-
-```python
-from models import VectorDatabase
-
-db = VectorDatabase(dimension=768, index_type='flat_ip')
-
-# Add vectors
-db.add_embeddings(embeddings, article_ids)
-
-# Search
-results = db.search(query_embedding, k=10)
-```
-
-Index Types:
-- `flat_ip`: Exact inner product (recommended for cosine similarity)
-- `flat_l2`: Exact L2 distance
-- `ivf_flat`: Approximate search (faster for large datasets)
-
-### 4. Recommendation Engine (`models/recommender.py`)
+## Using the Components Directly
 
 ```python
 from models import RecommendationEngine
+from data.data_loader import load_sample_data
 
 engine = RecommendationEngine()
-
-# Index articles
+articles = [a.to_dict() for a in load_sample_data().articles]
 engine.index_articles(articles)
 
-# Get recommendations
-recommendations = engine.get_recommendations(
-    article_id="article_001",
-    n_recommendations=10
-)
+engine.get_recommendations(article_id="sample_001", n_recommendations=5)
+engine.search_by_query("artificial intelligence regulation")
 
-# Search by query
-results = engine.search_by_query("artificial intelligence news")
-
-# Personalized recommendations (based on reading history)
-engine.mark_as_read("article_001")
-personalized = engine.get_personalized_recommendations()
+engine.mark_as_read("sample_001")
+engine.mark_as_read("sample_002")
+engine.get_personalized_recommendations()
 ```
 
----
+## Configuration
 
-##  Mathematical Foundation
+All settings live in `config.py`: model name and pooling strategy, FAISS index type, number of recommendations, similarity threshold, and UI options. For example, switching `model_name` to `bert-base-uncased` trades speed for quality.
 
-### Cosine Similarity
+## Tech Stack
 
-The core similarity metric:
-similarity(A, B) = (A · B) / (||A|| × ||B||)
+Python · PyTorch · HuggingFace Transformers (DistilBERT) · FAISS · Streamlit · scikit-learn · HuggingFace Datasets
 
+## Authors
 
-Where:
-- `A · B` is the dot product
-- `||A||` is the L2 norm (magnitude)
+- **Ghita Nafa**. [GitHub](https://github.com/Ghita05)
+- **Lina Harcharras**. [GitHub](https://github.com/linahrchrs)
 
-For normalized vectors, this simplifies to just the dot product, which is why we use `IndexFlatIP` in FAISS.
+Originally developed in [Ghita05/CSC_4352_Projects](https://github.com/Ghita05/CSC_4352_Projects/tree/main/FinalProject). Full details are in [Report.pdf](Report.pdf).
 
-### Embedding Pooling Strategies
+## References
 
-1. **CLS Token** (`cls`): Use the [CLS] token's representation
-2. **Mean Pooling** (`mean`): Average all token embeddings (recommended)
-3. **Max Pooling** (`max`): Take maximum values across dimensions
-
-
-##  UI Features
-
-### Browse Mode
-- Category filtering
-- Pagination
-- Click-to-recommend
-
-### Search Mode
-- Natural language queries
-- Semantic understanding
-- Configurable result count
-
-### Personalized Mode
-- Based on reading history
-- Requires 2+ read articles
-- User profile embedding
-
-
-
-##  Testing
-
-Run individual components:
-
-```bash
-# Test preprocessing
-python -m utils.preprocessing
-
-# Test embeddings
-python -m models.embeddings
-
-# Test vector database
-python -m models.vector_db
-
-# Test recommendation engine
-python -m models.recommender
-```
-
+- Devlin et al. (2019). *BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding.*
+- Sanh et al. (2019). *DistilBERT, a distilled version of BERT.*
+- Johnson et al. (2019). *Billion-scale similarity search with GPUs* (FAISS).

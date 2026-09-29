@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Generated artifacts
+models/*.index
+data/mind_demo/
+.streamlit/
+
+# OS
+.DS_Store
+Thumbs.db
